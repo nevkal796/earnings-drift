@@ -196,7 +196,7 @@ app.layout = html.Div([
             ),
         ], className="title-block"),
 
-        html.Div("<Methodology />", className="section-label"),
+        html.Div("Methodology", className="section-label"),
         html.Div([
             html.Div([
                 html.Label("Company", className="control-label"),
@@ -240,7 +240,7 @@ app.layout = html.Div([
 
         html.Hr(className="section-divider"),
 
-        html.Div("<Results />", className="section-label"),
+        html.Div("Results", className="section-label"),
         html.Div([
             html.Div([
                 html.Div(className="scatter-watermark"),
@@ -254,7 +254,7 @@ app.layout = html.Div([
 
         html.Hr(className="section-divider"),
 
-        html.Div("<Findings />", className="section-label"),
+        html.Div("Findings", className="section-label"),
         html.Div(build_findings_table(FINDINGS), className="findings-panel"),
 
     ], className="dashboard-main"),
