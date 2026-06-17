@@ -23,7 +23,8 @@ def upsert_company(ticker: str, cik: str, name: str = None, sector: str = None) 
         VALUES (%s, %s, %s, %s)
         ON CONFLICT (ticker) DO UPDATE
             SET cik = EXCLUDED.cik,
-                name = EXCLUDED.name
+                name = EXCLUDED.name,
+                sector = EXCLUDED.sector
         RETURNING id
     """, (ticker.upper(), cik, name, sector))
     company_id = cur.fetchone()[0]
@@ -31,7 +32,7 @@ def upsert_company(ticker: str, cik: str, name: str = None, sector: str = None) 
     cur.close()
     conn.close()
     return company_id
-
+    
 def upsert_filing(company_id: int, accession: str, filed: str, period: str, form_type: str) -> int:
     """Insert a filing if it doesn't exist, return its id."""
     conn = get_connection()

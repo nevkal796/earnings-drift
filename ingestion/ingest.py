@@ -2,13 +2,49 @@ import time
 from ingestion.edgar import get_cik, get_filings, get_exhibit_text
 from ingestion.loader import upsert_company, upsert_filing, insert_transcript
 
+SECTOR_MAP = {
+    "AAPL": "Technology", "MSFT": "Technology", "META": "Technology",
+    "NVDA": "Technology", "GOOGL": "Technology",
+    "JPM": "Finance", "GS": "Finance", "BAC": "Finance",
+    "JNJ": "Healthcare", "UNH": "Healthcare", "PFE": "Healthcare",
+    "XOM": "Energy", "CVX": "Energy",
+    "WMT": "Retail", "COST": "Retail",
+    "CAT": "Industrial", "BA": "Industrial",
+    "KO": "Consumer",
+}
 # Companies to ingest — ticker and display name
 COMPANIES = [
+    # Tech (existing)
     ("AAPL", "Apple Inc."),
     ("MSFT", "Microsoft Corporation"),
     ("META", "Meta Platforms Inc."),
     ("NVDA", "NVIDIA Corporation"),
     ("GOOGL", "Alphabet Inc."),
+
+    # Finance
+    ("JPM", "JPMorgan Chase & Co."),
+    ("GS", "Goldman Sachs Group Inc."),
+    ("BAC", "Bank of America Corporation"),
+
+    # Healthcare
+    ("JNJ", "Johnson & Johnson"),
+    ("UNH", "UnitedHealth Group Inc."),
+    ("PFE", "Pfizer Inc."),
+
+    # Energy
+    ("XOM", "Exxon Mobil Corporation"),
+    ("CVX", "Chevron Corporation"),
+
+    # Retail
+    ("WMT", "Walmart Inc."),
+    ("COST", "Costco Wholesale Corporation"),
+
+    # Industrial
+    ("CAT", "Caterpillar Inc."),
+    ("BA", "Boeing Company"),
+
+    # Consumer
+    ("KO", "Coca-Cola Company"),
 ]
 
 def ingest_company(ticker: str, name: str, limit: int = 20):
@@ -23,7 +59,8 @@ def ingest_company(ticker: str, name: str, limit: int = 20):
     print(f"  CIK: {cik}")
 
     # Step 2: save company to DB
-    company_id = upsert_company(ticker=ticker, cik=cik, name=name)
+    sector = SECTOR_MAP.get(ticker, "Unknown")
+    company_id = upsert_company(ticker=ticker, cik=cik, name=name, sector=sector)
     print(f"  DB company_id: {company_id}")
 
     # Step 3: get filings

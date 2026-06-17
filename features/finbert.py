@@ -39,10 +39,12 @@ def finbert_sentiment(text: str) -> dict:
         return {"positive": 0.0, "negative": 0.0, "neutral": 1.0}
 
     chunks = chunk_text(text)
-    pos_scores, neg_scores, neu_scores = [], [], []
 
-    for chunk in chunks:
-        results = _classifier(chunk)[0]
+    # batch all chunks in a single call instead of looping
+    all_results = _classifier(chunks, batch_size=8)
+
+    pos_scores, neg_scores, neu_scores = [], [], []
+    for results in all_results:
         scores = {r["label"].lower(): r["score"] for r in results}
         pos_scores.append(scores.get("positive", 0.0))
         neg_scores.append(scores.get("negative", 0.0))
