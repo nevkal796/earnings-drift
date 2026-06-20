@@ -257,6 +257,30 @@ TICKERS = sorted(df["ticker"].unique())
 FINDINGS = compute_findings(df)
 TAPE_ITEMS = build_ticker_tape(df)
 
+# ── Headline stats (specificity_score vs return_30d_pct, all companies) ──────
+_hl_clean = df[["specificity_score", "return_30d_pct"]].dropna()
+_hl_corr, _hl_p = stats.spearmanr(_hl_clean["specificity_score"], _hl_clean["return_30d_pct"]) if len(_hl_clean) > 3 else (0, 1)
+_hl_median = _hl_clean["specificity_score"].median()
+_hl_correct = (
+    ((_hl_clean["specificity_score"] > _hl_median) & (_hl_clean["return_30d_pct"] > 0))
+    | ((_hl_clean["specificity_score"] <= _hl_median) & (_hl_clean["return_30d_pct"] <= 0))
+).sum()
+_hl_win_rate = (_hl_correct / len(_hl_clean) * 100) if len(_hl_clean) > 0 else 0
+_hl_p_color = AMBER if _hl_p < 0.05 else "#FF4444"
+_hl_direction = "positively" if _hl_corr > 0 else "negatively"
+HEADLINE_SUMMARY = (
+    f"When companies use more specific numeric language in 8-K filings, "
+    f"their stock returns over the next 30 days are {_hl_direction} correlated "
+    f"(Spearman r = {_hl_corr:.3f}, p = {_hl_p:.4f}, "
+    f"n = {len(_hl_clean)})."
+)
+HEADLINE_CARDS = [
+    build_metric_card("Spearman r", f"{_hl_corr:.4f}"),
+    build_metric_card("P-Value", f"{_hl_p:.4f}", _hl_p_color),
+    build_metric_card("Win Rate", f"{_hl_win_rate:.1f}%"),
+    build_metric_card("N", str(len(_hl_clean))),
+]
+
 tape_track = []
 for item in TAPE_ITEMS * 3:
     tape_track.append(html.Span(item, style={
@@ -271,9 +295,27 @@ for item in TAPE_ITEMS * 3:
         "fontSize": "11px",
     }))
 
-app.layout = html.Div([
+# ── Shared tab label style ────────────────────────────────────────────────────
+TAB_STYLE = {
+    "fontFamily": "JetBrains Mono",
+    "fontSize": "11px",
+    "letterSpacing": "0.1em",
+    "color": TEXT_SECONDARY,
+    "background": BG_CARD,
+    "border": f"1px solid {BORDER}",
+    "borderBottom": "none",
+    "padding": "10px 24px",
+    "textTransform": "uppercase",
+}
+TAB_SELECTED_STYLE = {
+    **TAB_STYLE,
+    "color": AMBER,
+    "borderTop": f"2px solid {AMBER}",
+    "background": BG_OBSIDIAN,
+}
 
-    # Ticker tape
+# ── Shared header (tape + title) ──────────────────────────────────────────────
+_HEADER = [
     html.Div(
         html.Div(tape_track, style={
             "display": "flex",
@@ -291,236 +333,320 @@ app.layout = html.Div([
             "marginBottom": "32px",
         }
     ),
+    html.Div([
+        html.H1("EARNINGS SENTIMENT DRIFT", style={
+            "fontFamily": "IBM Plex Sans, sans-serif",
+            "fontSize": "28px",
+            "fontWeight": "300",
+            "letterSpacing": "0.2em",
+            "color": TEXT_PRIMARY,
+            "margin": "0 0 8px 0",
+            "textTransform": "uppercase",
+        }),
+        html.P(
+            "Linguistic feature analysis of SEC 8-K filings "
+            "vs subsequent stock returns · "
+            f"{len(df)} observations · "
+            f"{df['ticker'].nunique()} companies · "
+            f"{df['sector'].nunique()} sectors",
+            style={
+                "fontFamily": "JetBrains Mono",
+                "fontSize": "11px",
+                "color": TEXT_SECONDARY,
+                "margin": 0,
+                "letterSpacing": "0.04em",
+            }
+        ),
+    ], style={"marginBottom": "28px"}),
+    html.Hr(style={
+        "border": "none",
+        "borderTop": "1px solid rgba(255,176,0,0.15)",
+        "boxShadow": "0 0 8px rgba(255,176,0,0.1)",
+        "margin": "0 0 24px 0",
+    }),
+]
+
+app.layout = html.Div([
+
+    *_HEADER,
 
     html.Div([
+        dcc.Tabs(
+            id="main-tabs",
+            value="headline",
+            children=[
 
-        # Title block
-        html.Div([
-            html.H1("EARNINGS SENTIMENT DRIFT", style={
-                "fontFamily": "IBM Plex Sans, sans-serif",
-                "fontSize": "28px",
-                "fontWeight": "300",
-                "letterSpacing": "0.2em",
-                "color": TEXT_PRIMARY,
-                "margin": "0 0 8px 0",
-                "textTransform": "uppercase",
-            }),
-            html.P(
-                "Linguistic feature analysis of SEC 8-K filings "
-                "vs subsequent stock returns · "
-                f"{len(df)} observations · "
-                f"{df['ticker'].nunique()} companies · "
-                f"{df['sector'].nunique()} sectors",
-                style={
-                    "fontFamily": "JetBrains Mono",
-                    "fontSize": "11px",
-                    "color": TEXT_SECONDARY,
-                    "margin": 0,
-                    "letterSpacing": "0.04em",
-                }
-            ),
-        ], style={"marginBottom": "36px"}),
+                # ── TAB 1: Headline ───────────────────────────────────────
+                dcc.Tab(
+                    label="Headline",
+                    value="headline",
+                    style=TAB_STYLE,
+                    selected_style=TAB_SELECTED_STYLE,
+                    children=[
+                        html.Div([
 
-        # Amber divider
-        html.Hr(style={
-            "border": "none",
-            "borderTop": f"1px solid rgba(255,176,0,0.15)",
-            "boxShadow": "0 0 8px rgba(255,176,0,0.1)",
-            "margin": "0 0 28px 0",
-        }),
+                            html.Div("< Key Finding />", style={
+                                "fontFamily": "JetBrains Mono",
+                                "fontSize": "11px",
+                                "color": AMBER,
+                                "letterSpacing": "0.12em",
+                                "marginBottom": "16px",
+                                "textTransform": "uppercase",
+                                "marginTop": "28px",
+                            }),
 
-        # Methodology section
-        html.Div("< Methodology />", style={
-            "fontFamily": "JetBrains Mono",
-            "fontSize": "11px",
-            "color": AMBER,
-            "letterSpacing": "0.12em",
-            "marginBottom": "16px",
-            "textTransform": "uppercase",
-        }),
+                            # Summary sentence
+                            html.Div(HEADLINE_SUMMARY, style={
+                                "fontFamily": "IBM Plex Sans",
+                                "fontSize": "15px",
+                                "color": TEXT_PRIMARY,
+                                "lineHeight": "1.7",
+                                "background": BG_CARD,
+                                "border": f"1px solid {BORDER}",
+                                "borderLeft": f"3px solid {AMBER}",
+                                "borderRadius": "6px",
+                                "padding": "16px 20px",
+                                "marginBottom": "24px",
+                            }),
 
-        # Controls
-        html.Div([
-            html.Div([
-                html.Label("Sector", style={
-                    "fontFamily": "IBM Plex Sans",
-                    "fontSize": "11px",
-                    "fontWeight": "500",
-                    "color": TEXT_SECONDARY,
-                    "textTransform": "uppercase",
-                    "letterSpacing": "0.06em",
-                    "marginBottom": "8px",
-                    "display": "block",
-                }),
-                dcc.Checklist(
-                    id="sector-filter",
-                    options=[{"label": f"  {s}", "value": s}
-                             for s in sorted(df["sector"].dropna().unique())],
-                    value=sorted(df["sector"].dropna().unique()),
-                    inline=True,
-                    labelStyle={"color": AMBER, "fontFamily": "IBM Plex Sans",
-                                "fontSize": "12px", "marginRight": "12px"},
+                            # Headline metric cards (static, pre-computed)
+                            html.Div(HEADLINE_CARDS, style={
+                                "display": "flex",
+                                "gap": "12px",
+                                "flexWrap": "wrap",
+                                "marginBottom": "12px",
+                            }),
+
+                            html.Div(
+                                "Specificity Score vs 30-day return · all companies · p < 0.05 threshold",
+                                style={
+                                    "fontFamily": "JetBrains Mono",
+                                    "fontSize": "10px",
+                                    "color": TEXT_SECONDARY,
+                                    "letterSpacing": "0.06em",
+                                    "marginTop": "8px",
+                                }
+                            ),
+
+                        ], style={"paddingBottom": "40px"}),
+                    ],
                 ),
-            ], style={"marginBottom": "16px"}),
 
-            html.Div([
-                html.Label("Company", style={
-                    "fontFamily": "IBM Plex Sans",
-                    "fontSize": "11px",
-                    "fontWeight": "500",
-                    "color": TEXT_SECONDARY,
-                    "textTransform": "uppercase",
-                    "letterSpacing": "0.06em",
-                    "marginBottom": "8px",
-                    "display": "block",
-                }),
-                dcc.Checklist(
-                    id="ticker-filter",
-                    options=[{"label": f"  {t}", "value": t} for t in TICKERS],
-                    value=TICKERS,
-                    inline=True,
-                    labelStyle={"color": AMBER, "fontFamily": "JetBrains Mono",
-                                "fontSize": "12px", "marginRight": "10px"},
+                # ── TAB 2: Explore ────────────────────────────────────────
+                dcc.Tab(
+                    label="Explore",
+                    value="explore",
+                    style=TAB_STYLE,
+                    selected_style=TAB_SELECTED_STYLE,
+                    children=[
+                        html.Div([
+
+                            html.Div("< Methodology />", style={
+                                "fontFamily": "JetBrains Mono",
+                                "fontSize": "11px",
+                                "color": AMBER,
+                                "letterSpacing": "0.12em",
+                                "marginBottom": "16px",
+                                "textTransform": "uppercase",
+                                "marginTop": "28px",
+                            }),
+
+                            # Controls panel
+                            html.Div([
+                                html.Div([
+                                    html.Label("Sector", style={
+                                        "fontFamily": "IBM Plex Sans",
+                                        "fontSize": "11px",
+                                        "fontWeight": "500",
+                                        "color": TEXT_SECONDARY,
+                                        "textTransform": "uppercase",
+                                        "letterSpacing": "0.06em",
+                                        "marginBottom": "8px",
+                                        "display": "block",
+                                    }),
+                                    dcc.Checklist(
+                                        id="sector-filter",
+                                        options=[{"label": f"  {s}", "value": s}
+                                                 for s in sorted(df["sector"].dropna().unique())],
+                                        value=sorted(df["sector"].dropna().unique()),
+                                        inline=True,
+                                        labelStyle={"color": AMBER, "fontFamily": "IBM Plex Sans",
+                                                    "fontSize": "12px", "marginRight": "12px"},
+                                    ),
+                                ], style={"marginBottom": "16px"}),
+
+                                html.Div([
+                                    html.Label("Company", style={
+                                        "fontFamily": "IBM Plex Sans",
+                                        "fontSize": "11px",
+                                        "fontWeight": "500",
+                                        "color": TEXT_SECONDARY,
+                                        "textTransform": "uppercase",
+                                        "letterSpacing": "0.06em",
+                                        "marginBottom": "8px",
+                                        "display": "block",
+                                    }),
+                                    dcc.Checklist(
+                                        id="ticker-filter",
+                                        options=[{"label": f"  {t}", "value": t} for t in TICKERS],
+                                        value=TICKERS,
+                                        inline=True,
+                                        labelStyle={"color": AMBER, "fontFamily": "JetBrains Mono",
+                                                    "fontSize": "12px", "marginRight": "10px"},
+                                    ),
+                                ], style={"marginBottom": "16px"}),
+
+                                html.Div([
+                                    html.Div([
+                                        html.Label("Linguistic Feature", style={
+                                            "fontFamily": "IBM Plex Sans",
+                                            "fontSize": "11px",
+                                            "color": TEXT_SECONDARY,
+                                            "textTransform": "uppercase",
+                                            "letterSpacing": "0.06em",
+                                            "marginBottom": "8px",
+                                            "display": "block",
+                                        }),
+                                        dcc.Dropdown(
+                                            id="feature-select",
+                                            options=[{"label": v, "value": k}
+                                                     for k, v in FEATURES.items()],
+                                            value="specificity_score",
+                                            clearable=False,
+                                            style={
+                                                "fontSize": "12px",
+                                                "background": BG_CARD,
+                                                "color": TEXT_PRIMARY,
+                                                "border": f"1px solid {BORDER}",
+                                                "fontFamily": "JetBrains Mono",
+                                            },
+                                        ),
+                                    ], style={"width": "280px"}),
+
+                                    html.Div([
+                                        html.Label("Return Horizon", style={
+                                            "fontFamily": "IBM Plex Sans",
+                                            "fontSize": "11px",
+                                            "color": TEXT_SECONDARY,
+                                            "textTransform": "uppercase",
+                                            "letterSpacing": "0.06em",
+                                            "marginBottom": "8px",
+                                            "display": "block",
+                                        }),
+                                        dcc.RadioItems(
+                                            id="return-horizon",
+                                            options=[
+                                                {"label": "  30 day", "value": "return_30d_pct"},
+                                                {"label": "  60 day", "value": "return_60d_pct"},
+                                                {"label": "  90 day", "value": "return_90d_pct"},
+                                            ],
+                                            value="return_30d_pct",
+                                            inline=True,
+                                            labelStyle={"fontSize": "12px", "color": AMBER,
+                                                   "fontFamily": "JetBrains Mono"},
+                                        ),
+                                    ], style={"width": "280px"}),
+                                ], style={"display": "flex", "gap": "32px",
+                                          "alignItems": "flex-end"}),
+                            ], style={
+                                "background": BG_CARD,
+                                "border": f"1px solid {BORDER}",
+                                "borderRadius": "10px",
+                                "padding": "20px 24px",
+                                "marginBottom": "20px",
+                            }),
+
+                            # Dynamic metric cards
+                            html.Div(id="stats-bar", style={
+                                "display": "flex",
+                                "gap": "12px",
+                                "marginBottom": "28px",
+                                "flexWrap": "wrap",
+                            }),
+
+                            html.Hr(style={
+                                "border": "none",
+                                "borderTop": "1px solid rgba(255,176,0,0.15)",
+                                "boxShadow": "0 0 8px rgba(255,176,0,0.1)",
+                                "margin": "0 0 20px 0",
+                            }),
+
+                            html.Div("< Results />", style={
+                                "fontFamily": "JetBrains Mono",
+                                "fontSize": "11px",
+                                "color": AMBER,
+                                "letterSpacing": "0.12em",
+                                "marginBottom": "16px",
+                                "textTransform": "uppercase",
+                            }),
+
+                            # Charts
+                            html.Div([
+                                html.Div([
+                                    dcc.Graph(id="scatter-plot", style={"height": "380px"}),
+                                ], style={
+                                    "flex": "1",
+                                    "background": BG_CARD,
+                                    "border": f"1px solid {BORDER}",
+                                    "borderRadius": "10px",
+                                    "padding": "8px",
+                                }),
+                                html.Div([
+                                    dcc.Graph(id="time-series", style={"height": "380px"}),
+                                ], style={
+                                    "flex": "1",
+                                    "background": BG_CARD,
+                                    "border": f"1px solid {BORDER}",
+                                    "borderRadius": "10px",
+                                    "padding": "8px",
+                                }),
+                            ], style={"display": "flex", "gap": "16px", "marginBottom": "40px"}),
+
+                        ]),
+                    ],
                 ),
-            ], style={"marginBottom": "16px"}),
 
-            html.Div([
-                html.Div([
-                    html.Label("Linguistic Feature", style={
-                        "fontFamily": "IBM Plex Sans",
-                        "fontSize": "11px",
-                        "color": TEXT_SECONDARY,
-                        "textTransform": "uppercase",
-                        "letterSpacing": "0.06em",
-                        "marginBottom": "8px",
-                        "display": "block",
-                    }),
-                    dcc.Dropdown(
-                        id="feature-select",
-                        options=[{"label": v, "value": k}
-                                 for k, v in FEATURES.items()],
-                        value="specificity_score",
-                        clearable=False,
-                        style={
-                            "fontSize": "12px",
-                            "background": BG_CARD,
-                            "color": TEXT_PRIMARY,
-                            "border": f"1px solid {BORDER}",
-                            "fontFamily": "JetBrains Mono",
-                        },
-                    ),
-                ], style={"width": "280px"}),
+                # ── TAB 3: Findings ───────────────────────────────────────
+                dcc.Tab(
+                    label="Findings",
+                    value="findings",
+                    style=TAB_STYLE,
+                    selected_style=TAB_SELECTED_STYLE,
+                    children=[
+                        html.Div([
 
-                html.Div([
-                    html.Label("Return Horizon", style={
-                        "fontFamily": "IBM Plex Sans",
-                        "fontSize": "11px",
-                        "color": TEXT_SECONDARY,
-                        "textTransform": "uppercase",
-                        "letterSpacing": "0.06em",
-                        "marginBottom": "8px",
-                        "display": "block",
-                    }),
-                    dcc.RadioItems(
-                        id="return-horizon",
-                        options=[
-                            {"label": "  30 day", "value": "return_30d_pct"},
-                            {"label": "  60 day", "value": "return_60d_pct"},
-                            {"label": "  90 day", "value": "return_90d_pct"},
-                        ],
-                        value="return_30d_pct",
-                        inline=True,
-                        labelStyle={"fontSize": "12px", "color": AMBER,
-                               "fontFamily": "JetBrains Mono"},
-                    ),
-                ], style={"width": "280px"}),
-            ], style={"display": "flex", "gap": "32px",
-                      "alignItems": "flex-end"}),
+                            html.Div("< Findings />", style={
+                                "fontFamily": "JetBrains Mono",
+                                "fontSize": "11px",
+                                "color": AMBER,
+                                "letterSpacing": "0.12em",
+                                "marginBottom": "16px",
+                                "textTransform": "uppercase",
+                                "marginTop": "28px",
+                            }),
 
-        ], style={
-            "background": BG_CARD,
-            "border": f"1px solid {BORDER}",
-            "borderRadius": "10px",
-            "padding": "20px 24px",
-            "marginBottom": "20px",
-        }),
+                            html.Div([
+                                build_findings_table(FINDINGS),
+                            ], style={
+                                "background": BG_CARD,
+                                "border": f"1px solid {BORDER}",
+                                "borderRadius": "10px",
+                                "padding": "16px 20px",
+                                "marginBottom": "40px",
+                            }),
 
-        # Metric cards
-        html.Div(id="stats-bar", style={
-            "display": "flex",
-            "gap": "12px",
-            "marginBottom": "28px",
-            "flexWrap": "wrap",
-        }),
+                        ]),
+                    ],
+                ),
 
-        # Amber divider
-        html.Hr(style={
-            "border": "none",
-            "borderTop": f"1px solid rgba(255,176,0,0.15)",
-            "boxShadow": "0 0 8px rgba(255,176,0,0.1)",
-            "margin": "0 0 20px 0",
-        }),
-
-        # Results section
-        html.Div("< Results />", style={
-            "fontFamily": "JetBrains Mono",
-            "fontSize": "11px",
-            "color": AMBER,
-            "letterSpacing": "0.12em",
-            "marginBottom": "16px",
-            "textTransform": "uppercase",
-        }),
-
-        # Charts
-        html.Div([
-            html.Div([
-                dcc.Graph(id="scatter-plot", style={"height": "380px"}),
-            ], style={
-                "flex": "1",
+            ],
+            style={"borderBottom": f"1px solid {BORDER}"},
+            colors={
+                "border": BORDER,
+                "primary": AMBER,
                 "background": BG_CARD,
-                "border": f"1px solid {BORDER}",
-                "borderRadius": "10px",
-                "padding": "8px",
-            }),
-            html.Div([
-                dcc.Graph(id="time-series", style={"height": "380px"}),
-            ], style={
-                "flex": "1",
-                "background": BG_CARD,
-                "border": f"1px solid {BORDER}",
-                "borderRadius": "10px",
-                "padding": "8px",
-            }),
-        ], style={"display": "flex", "gap": "16px", "marginBottom": "28px"}),
-
-        # Amber divider
-        html.Hr(style={
-            "border": "none",
-            "borderTop": f"1px solid rgba(255,176,0,0.15)",
-            "boxShadow": "0 0 8px rgba(255,176,0,0.1)",
-            "margin": "0 0 20px 0",
-        }),
-
-        # Findings section
-        html.Div("< Findings />", style={
-            "fontFamily": "JetBrains Mono",
-            "fontSize": "11px",
-            "color": AMBER,
-            "letterSpacing": "0.12em",
-            "marginBottom": "16px",
-            "textTransform": "uppercase",
-        }),
-
-        html.Div([
-            build_findings_table(FINDINGS),
-        ], style={
-            "background": BG_CARD,
-            "border": f"1px solid {BORDER}",
-            "borderRadius": "10px",
-            "padding": "16px 20px",
-            "marginBottom": "40px",
-        }),
-
+            },
+        ),
     ], style={
         "maxWidth": "1200px",
         "margin": "0 auto",
