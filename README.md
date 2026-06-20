@@ -1,5 +1,7 @@
 # Earnings Call Sentiment Drift Tracker
 
+**Live dashboard:** https://your-railway-url.up.railway.app
+
 A research pipeline that extracts linguistic features from SEC 8-K earnings filings and correlates them with subsequent stock price returns. Built to investigate whether executive communication patterns — hedging frequency, sentiment, readability complexity — carry predictive signal about near-term price movement.
 
 ---
