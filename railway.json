@@ -3,7 +3,8 @@
       "builder": "NIXPACKS"
     },
     "deploy": {
-      "startCommand": "python -m dashboard.app",
-      "restartPolicyType": "ON_FAILURE"
+      "startCommand": "gunicorn dashboard.app:server --bind 0.0.0.0:$PORT --workers 2 --timeout 120",
+      "restartPolicyType": "ON_FAILURE",
+      "healthcheckPath": "/"
     }
   }

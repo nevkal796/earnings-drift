@@ -6,6 +6,7 @@ from scipy import stats
 from ingestion.loader import get_connection
 
 app = Dash(__name__)
+server = app.server
 
 BG_OBSIDIAN = "#0B0F14"
 BG_CARD = "#0D1117"
@@ -429,7 +430,7 @@ app.layout = html.Div([
                         ],
                         value="return_30d_pct",
                         inline=True,
-                        labelstyle={"fontSize": "12px", "color": AMBER,
+                        labelStyle={"fontSize": "12px", "color": AMBER,
                                "fontFamily": "JetBrains Mono"},
                     ),
                 ], style={"width": "280px"}),

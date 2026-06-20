@@ -63,7 +63,7 @@ def run_feature_pipeline():
         JOIN filings f ON f.id = t.filing_id
         JOIN companies c ON c.id = f.company_id
         LEFT JOIN linguistic_features lf ON lf.transcript_id = t.id
-        WHERE t.cleaned_text IS NOT NULL
+        WHERE t.prepared_remarks IS NOT NULL
         AND lf.id IS NULL
         ORDER BY c.ticker, f.filed_at
     """)
