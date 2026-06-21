@@ -1,6 +1,6 @@
 # Earnings Call Sentiment Drift Tracker
 
-**Live dashboard:** https://your-railway-url.up.railway.app
+**Live dashboard:** https://earnings-drift.onrender.com/
 
 A research pipeline that extracts linguistic features from SEC 8-K earnings filings and correlates them with subsequent stock price returns. Built to investigate whether executive communication patterns — hedging frequency, sentiment, readability complexity — carry predictive signal about near-term price movement.
 
@@ -14,7 +14,7 @@ Do measurable changes in executive language in earnings press releases predict s
 
 ## Findings
 
-Analysis of **56 observations** across **5 companies** (AAPL, GOOGL, META, MSFT, NVDA) from **January 2024 – May 2026**:
+Analysis of **56 observations** across **18 companies** spanning 7 sectors (Technology, Finance, Healthcare, Energy, Retail, Industrial, Consumer) from **January 2024 – May 2026**:
 
 | Finding | Correlation | P-Value | Interpretation |
 |---|---|---|---|
@@ -30,17 +30,32 @@ Analysis of **56 observations** across **5 companies** (AAPL, GOOGL, META, MSFT,
 ---
 
 ## Architecture
-SEC EDGAR API → ingestion pipeline → PostgreSQL
-↓
-NLP feature extraction
-(FinBERT + hedging lexicon
-+ Gunning Fog + specificity)
-↓
-Yahoo Finance price data
-↓
-Spearman correlation analysis
-↓
-Plotly Dash dashboard
+
+```
+SEC EDGAR API → ingestion pipeline → Neon (PostgreSQL)
+                                          ↓
+                              NLP feature extraction
+                         (FinBERT + hedging lexicon
+                          + Gunning Fog + specificity)
+                                          ↓
+                          Yahoo Finance price data
+                                          ↓
+                          Spearman correlation analysis
+                                          ↓
+                          Plotly Dash dashboard → Render
+```
+
+---
+
+## Dashboard
+
+The dashboard is organized into three tabs:
+
+- **Headline** — key finding with prominent metric cards (Spearman r, p-value, win rate, N), a summary insight block, and a drift chart for the top signal
+- **Explore** — interactive cohort builder with sector/market-cap/sentiment filters, cohort table with sortable columns, keyword pressure panel, post-print drift chart, sentiment distribution, and a feature × return correlation panel
+- **Findings** — static research findings table
+
+Visual design: obsidian dark theme with green accent, dot-grid background, and tab fade-in animation.
 
 ---
 
@@ -54,27 +69,28 @@ Plotly Dash dashboard
 
 **Gunning Fog Index** — readability metric measuring average sentence length and proportion of complex words (3+ syllables). Higher scores indicate denser, harder-to-parse prose.
 
-**FinBERT Sentiment** — positive/negative/neutral scores from ProsusAI/finbert, a BERT model fine-tuned on financial text. Chunked at 400 words and averaged across the full document.
+**FinBERT Sentiment** — positive/negative/neutral scores from ProsusAI/finbert, a BERT model fine-tuned on financial text. Chunked at 400 words and averaged across the full document. Polarity = positive − negative.
 
 ---
 
 ## Stack
 
 - **Ingestion:** Python, SEC EDGAR API, BeautifulSoup
-- **Storage:** PostgreSQL with a normalized relational schema
+- **Storage:** [Neon](https://neon.tech) serverless PostgreSQL
 - **NLP:** Hugging Face Transformers (FinBERT), custom lexicon-based scorers
 - **Price data:** yfinance
 - **Analysis:** pandas, scipy (Spearman correlation)
-- **Dashboard:** Plotly Dash
+- **Dashboard:** Plotly Dash 4
+- **Hosting:** [Render](https://render.com)
 
 ---
 
 ## Setup
 
-**Prerequisites:** Python 3.11+, PostgreSQL 18
+**Prerequisites:** Python 3.12+, PostgreSQL
 
 ```bash
-git clone https://github.com/YOURUSERNAME/earnings-drift.git
+git clone https://github.com/nevkal796/earnings-drift.git
 cd earnings-drift
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\Activate.ps1
@@ -82,25 +98,27 @@ pip install -r requirements.txt
 ```
 
 Create a `.env` file:
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=earnings_drift
-DB_USER=postgres
-DB_PASSWORD=your_password
-SEC_USER_AGENT=your_email@gmail.com
 
-Create the database and run schema:
+```
+DB_HOST=your_neon_host
+DB_PORT=5432
+DB_NAME=neondb
+DB_USER=your_user
+DB_PASSWORD=your_password
+DB_SSLMODE=require
+SEC_USER_AGENT=your_email@gmail.com
+```
+
+Create the database schema:
 
 ```bash
-psql -U postgres -c "CREATE DATABASE earnings_drift;"
-psql -U postgres -d earnings_drift -f db/schema.sql
+psql "postgresql://user:password@host/dbname?sslmode=require" -f db/schema.sql
 ```
 
 Run the full pipeline:
 
 ```bash
 python -m ingestion.ingest       # fetch SEC filings
-python -m ingestion.clean_all    # clean and segment text
 python -m features.pipeline      # extract linguistic features
 python -m prices.returns         # fetch price data
 python -m analysis.correlations  # run correlation analysis
