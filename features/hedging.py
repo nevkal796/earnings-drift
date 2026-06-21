@@ -35,6 +35,33 @@ SPECIFICITY_PATTERN = re.compile(
 )
 
 
+POSITIVE_SIGNAL_TERMS = [
+    "record", "outperform", "beat", "accelerate",
+    "expand", "strong", "robust", "momentum",
+]
+
+_HEDGE_SET    = set(HEDGING_TERMS)
+_UNCERT_SET   = set(UNCERTAINTY_TERMS)
+_POSITIVE_SET = set(POSITIVE_SIGNAL_TERMS)
+_ALL_TERMS    = _HEDGE_SET | _UNCERT_SET | _POSITIVE_SET
+
+
+def keyword_frequency(texts: list[str]) -> dict[str, int]:
+    """
+    Count occurrences of every term across the corpus.
+    Returns top-20 {term: count} sorted descending.
+    """
+    counts: dict[str, int] = {}
+    for text in texts:
+        if not text:
+            continue
+        for word in text.lower().split():
+            token = word.strip(".,;:!?\"'()")
+            if token in _ALL_TERMS:
+                counts[token] = counts.get(token, 0) + 1
+    return dict(sorted(counts.items(), key=lambda x: x[1], reverse=True)[:20])
+
+
 def hedging_score(text: str) -> float:
     """Hedging terms per 1000 words."""
     if not text:
