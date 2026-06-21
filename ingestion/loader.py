@@ -6,13 +6,17 @@ load_dotenv()
 
 def get_connection():
     """Create and return a database connection."""
-    return psycopg2.connect(
+    kwargs = dict(
         host=os.getenv("DB_HOST"),
         port=os.getenv("DB_PORT"),
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD")
+        password=os.getenv("DB_PASSWORD"),
     )
+    sslmode = os.getenv("DB_SSLMODE")
+    if sslmode:
+        kwargs["sslmode"] = sslmode
+    return psycopg2.connect(**kwargs)
 
 def upsert_company(ticker: str, cik: str, name: str = None, sector: str = None) -> int:
     """Insert a company if it doesn't exist, return its id."""
